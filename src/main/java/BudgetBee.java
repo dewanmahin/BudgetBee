@@ -3,6 +3,7 @@ import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -47,7 +48,6 @@ public class BudgetBee extends JFrame {
         JScrollPane scrollPane = new JScrollPane(table);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
 
-        // Input panel with fields and buttons
         JPanel inputPanel = new JPanel(new GridLayout(2, 1, 10, 10));
         inputPanel.setBackground(new Color(240, 245, 255));
 
@@ -84,18 +84,13 @@ public class BudgetBee extends JFrame {
 
         mainPanel.add(inputPanel, BorderLayout.SOUTH);
 
-        // Action listener for add button to add expense
         addButton.addActionListener(e -> addExpense());
-
-        // Optional: add Enter key triggers
         amountField.addActionListener(e -> addExpense());
         quantityField.addActionListener(e -> addExpense());
 
-        // Save button: Feature will be added soon
-        saveButton.addActionListener(e -> {
-            // No save logic yet
-            JOptionPane.showMessageDialog(this, "Save feature coming soon!");
-        });
+        saveButton.addActionListener(e -> saveData());
+
+        loadData();
     }
 
     private void addExpense() {
@@ -124,8 +119,8 @@ public class BudgetBee extends JFrame {
                     desc,
                     category,
                     quantity,
-                    String.format("$%.2f", amount),
-                    String.format("$%.2f", totalCost)
+                    String.format("৳%.2f", amount),
+                    String.format("৳%.2f", totalCost)
             });
 
             total += totalCost;
@@ -140,6 +135,75 @@ public class BudgetBee extends JFrame {
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(),
                     "Input Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void saveData() {
+        try (PrintWriter writer = new PrintWriter("expenses.csv")) {
+            // Write CSV header
+            writer.println("Date,Description,Category,Quantity,Amount,Total");
+
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                // Remove currency symbol before saving
+                String amount = tableModel.getValueAt(i, 4).toString().replace("৳", "").trim();
+                String total = tableModel.getValueAt(i, 5).toString().replace("৳", "").trim();
+
+                writer.println(String.join(",",
+                        tableModel.getValueAt(i, 0).toString(),
+                        tableModel.getValueAt(i, 1).toString(),
+                        tableModel.getValueAt(i, 2).toString(),
+                        tableModel.getValueAt(i, 3).toString(),
+                        amount,
+                        total
+                ));
+            }
+
+            JOptionPane.showMessageDialog(this, "Data saved to expenses.csv",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Error saving data: " + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void loadData() {
+        File file = new File("expenses.csv");
+        if (!file.exists()) return;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            reader.readLine(); // skip header
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length == 6) {
+                    String date = parts[0];
+                    String desc = parts[1];
+                    String category = parts[2];
+                    int quantity = Integer.parseInt(parts[3]);
+                    String amountStr = parts[4];
+                    String totalStr = parts[5];
+
+                    tableModel.addRow(new Object[]{
+                            date,
+                            desc,
+                            category,
+                            quantity,
+                            "৳" + amountStr,
+                            "৳" + totalStr
+                    });
+
+                    double totalCost = Double.parseDouble(totalStr);
+                    total += totalCost;
+                    totalItems += quantity;
+                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + totalCost);
+                }
+            }
+
+            updateStats();
+        } catch (IOException | NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Error loading data: " + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -159,7 +223,7 @@ public class BudgetBee extends JFrame {
         averageLabel.setText(String.format("Avg: $%.2f", totalItems > 0 ? total / totalItems : 0));
     }
 
-
+    // UI methods
     private JTextField createTextFieldWithPlaceholder(String placeholder) {
         JTextField field = new JTextField();
         field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
