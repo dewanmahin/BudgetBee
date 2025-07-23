@@ -19,7 +19,7 @@ public class BudgetBee extends JFrame {
     private Map<String, Double> categoryTotals = new HashMap<>();
 
     public BudgetBee() {
-        setTitle("💰 Expense Tracker Pro");
+        setTitle("💰 BudgetBee");
         setSize(1000, 700);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -35,7 +35,7 @@ public class BudgetBee extends JFrame {
         mainPanel.setBackground(new Color(240, 245, 255));
         add(mainPanel);
 
-        JLabel header = new JLabel("Expense Tracker Pro");
+        JLabel header = new JLabel("BudgetBee");
         header.setFont(new Font("Segoe UI", Font.BOLD, 28));
         header.setForeground(new Color(44, 62, 80));
         mainPanel.add(header, BorderLayout.NORTH);
