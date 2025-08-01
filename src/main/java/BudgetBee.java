@@ -15,6 +15,7 @@ public class BudgetBee extends JFrame {
     private DefaultTableModel tableModel;
     private JLabel totalLabel, quantityLabel, averageLabel;
     private JPanel chartPanel;
+    private JTable table;
 
     private double total = 0;
     private int totalItems = 0;
@@ -27,7 +28,7 @@ public class BudgetBee extends JFrame {
     };
 
     public BudgetBee() {
-        setTitle("💰 Expense Tracker Pro");
+        setTitle("💰 BudgetBee");
         setSize(1000, 700);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -42,32 +43,29 @@ public class BudgetBee extends JFrame {
         mainPanel.setBackground(new Color(240, 245, 255));
         add(mainPanel);
 
-        JLabel header = new JLabel("Expense Tracker Pro");
+        JLabel header = new JLabel("BudgetBee");
         header.setFont(new Font("Segoe UI", Font.BOLD, 28));
         header.setForeground(new Color(44, 62, 80));
         mainPanel.add(header, BorderLayout.NORTH);
 
         tableModel = new DefaultTableModel(new String[]{"Date", "Description", "Category", "Quantity", "Amount", "Total"}, 0);
-        JTable table = new JTable(tableModel);
+        table = new JTable(tableModel);
         customizeTable(table);
-
         JScrollPane scrollPane = new JScrollPane(table);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel(new GridLayout(2, 1, 10, 10));
         inputPanel.setBackground(new Color(240, 245, 255));
 
-        JPanel fieldsPanel = new JPanel(new GridLayout(1, 6, 10, 10));
+        JPanel fieldsPanel = new JPanel(new GridLayout(1, 7, 10, 10));
         descriptionField = createTextFieldWithPlaceholder("Description");
         categoryCombo = createCategoryCombo(categories);
         quantityField = createTextFieldWithPlaceholder("Quantity");
         amountField = createTextFieldWithPlaceholder("Amount");
 
         JButton addButton = createButton("Add Expense", new Color(76, 175, 80));
-        addButton.setPreferredSize(new Dimension(150, 40));
-
         JButton saveButton = createButton("Save Data", new Color(33, 150, 243));
-        saveButton.setPreferredSize(new Dimension(150, 40));
+        JButton deleteButton = createButton("Delete Selected", new Color(244, 67, 54)); // New
 
         fieldsPanel.add(descriptionField);
         fieldsPanel.add(categoryCombo);
@@ -75,6 +73,7 @@ public class BudgetBee extends JFrame {
         fieldsPanel.add(amountField);
         fieldsPanel.add(addButton);
         fieldsPanel.add(saveButton);
+        fieldsPanel.add(deleteButton);
 
         JPanel statsPanel = new JPanel(new GridLayout(1, 3, 10, 10));
         totalLabel = createStatLabel("Total: $0.00", new Color(192, 57, 43));
@@ -114,9 +113,37 @@ public class BudgetBee extends JFrame {
         });
 
         saveButton.addActionListener(e -> saveData());
+        deleteButton.addActionListener(e -> deleteSelectedExpense()); // New
 
         loadData();
         chartPanel.repaint();
+    }
+
+    private void deleteSelectedExpense() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a row to delete", "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            String category = tableModel.getValueAt(selectedRow, 2).toString();
+            int quantity = Integer.parseInt(tableModel.getValueAt(selectedRow, 3).toString());
+            double totalCost = Double.parseDouble(tableModel.getValueAt(selectedRow, 5).toString().replace("৳", "").trim());
+
+            total -= totalCost;
+            totalItems -= quantity;
+            categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) - totalCost);
+
+            tableModel.removeRow(selectedRow); // Remove from table
+            saveData();                        // Rewrite updated table to CSV
+
+            updateStats();
+            chartPanel.repaint();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to delete row properly: " + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void drawPieChart(Graphics g) {
@@ -147,11 +174,9 @@ public class BudgetBee extends JFrame {
             }
         }
 
-        // Legend
         int legendX = 20;
         int legendY = y + diameter + 20;
         int boxSize = 15;
-
         g2d.setFont(new Font("Segoe UI", Font.BOLD, 12));
         colorIndex = 0;
 
@@ -160,11 +185,7 @@ public class BudgetBee extends JFrame {
                 g2d.setColor(categoryColors[colorIndex % categoryColors.length]);
                 g2d.fillRect(legendX, legendY, boxSize, boxSize);
                 g2d.setColor(Color.BLACK);
-
-                String label = String.format("%s (%.1f%%)",
-                        entry.getKey(),
-                        (entry.getValue() / total) * 100);
-
+                String label = String.format("%s (%.1f%%)", entry.getKey(), (entry.getValue() / total) * 100);
                 g2d.drawString(label, legendX + boxSize + 5, legendY + boxSize - 3);
                 legendY += boxSize + 5;
                 colorIndex++;
@@ -175,18 +196,14 @@ public class BudgetBee extends JFrame {
     private void addExpense() {
         try {
             String desc = descriptionField.getText().trim();
-            if (desc.equals("Description") || desc.isEmpty()) {
-                throw new IllegalArgumentException("Please enter a description");
-            }
+            if (desc.equals("Description") || desc.isEmpty()) throw new IllegalArgumentException("Please enter a description");
 
             String qtyText = quantityField.getText().trim();
-            if (qtyText.equals("Quantity")) qtyText = "1"; // default quantity
+            if (qtyText.equals("Quantity")) qtyText = "1";
             int quantity = Integer.parseInt(qtyText);
 
             String amtText = amountField.getText().trim();
-            if (amtText.equals("Amount")) {
-                throw new IllegalArgumentException("Please enter an amount");
-            }
+            if (amtText.equals("Amount")) throw new IllegalArgumentException("Please enter an amount");
             double amount = Double.parseDouble(amtText);
 
             String category = (String) categoryCombo.getSelectedItem();
@@ -198,8 +215,8 @@ public class BudgetBee extends JFrame {
                     desc,
                     category,
                     quantity,
-                    String.format("৳%.2f", amount),
-                    String.format("৳%.2f", totalCost)
+                    "৳" + String.format("%.2f", amount),
+                    "৳" + String.format("%.2f", totalCost)
             });
 
             total += totalCost;
@@ -208,13 +225,10 @@ public class BudgetBee extends JFrame {
 
             updateStats();
             resetInputFields();
-
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Please enter valid numbers for quantity and amount",
-                    "Input Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter valid numbers for quantity and amount", "Input Error", JOptionPane.ERROR_MESSAGE);
         } catch (IllegalArgumentException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Input Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Input Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -234,7 +248,6 @@ public class BudgetBee extends JFrame {
                         totalStr
                 ));
             }
-            JOptionPane.showMessageDialog(this, "Data saved to expenses.csv", "Success", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Error saving data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -274,8 +287,7 @@ public class BudgetBee extends JFrame {
             }
             updateStats();
         } catch (IOException | NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Error loading data: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error loading data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
