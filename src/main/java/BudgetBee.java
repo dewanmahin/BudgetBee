@@ -14,18 +14,24 @@ public class BudgetBee extends JFrame {
     private JComboBox<String> categoryCombo;
     private DefaultTableModel tableModel;
     private JLabel totalLabel, quantityLabel, averageLabel;
+    private JPanel chartPanel;
 
     private double total = 0;
     private int totalItems = 0;
     private Map<String, Double> categoryTotals = new HashMap<>();
 
+    private final Color[] categoryColors = {
+            new Color(255, 99, 132), new Color(54, 162, 235),
+            new Color(255, 206, 86), new Color(75, 192, 192),
+            new Color(153, 102, 255), new Color(255, 159, 64)
+    };
+
     public BudgetBee() {
-        setTitle("💰 BudgetBee");
+        setTitle("💰 Expense Tracker Pro");
         setSize(1000, 700);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-        // Initialize categories and totals
         String[] categories = {"Food", "Transport", "Shopping", "Entertainment", "Bills", "Other"};
         for (String category : categories) {
             categoryTotals.put(category, 0.0);
@@ -36,7 +42,7 @@ public class BudgetBee extends JFrame {
         mainPanel.setBackground(new Color(240, 245, 255));
         add(mainPanel);
 
-        JLabel header = new JLabel("BudgetBee");
+        JLabel header = new JLabel("Expense Tracker Pro");
         header.setFont(new Font("Segoe UI", Font.BOLD, 28));
         header.setForeground(new Color(44, 62, 80));
         mainPanel.add(header, BorderLayout.NORTH);
@@ -84,13 +90,86 @@ public class BudgetBee extends JFrame {
 
         mainPanel.add(inputPanel, BorderLayout.SOUTH);
 
-        addButton.addActionListener(e -> addExpense());
-        amountField.addActionListener(e -> addExpense());
-        quantityField.addActionListener(e -> addExpense());
+        chartPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                drawPieChart(g);
+            }
+        };
+        chartPanel.setPreferredSize(new Dimension(300, 0));
+        mainPanel.add(chartPanel, BorderLayout.EAST);
+
+        addButton.addActionListener(e -> {
+            addExpense();
+            chartPanel.repaint();
+        });
+        amountField.addActionListener(e -> {
+            addExpense();
+            chartPanel.repaint();
+        });
+        quantityField.addActionListener(e -> {
+            addExpense();
+            chartPanel.repaint();
+        });
 
         saveButton.addActionListener(e -> saveData());
 
         loadData();
+        chartPanel.repaint();
+    }
+
+    private void drawPieChart(Graphics g) {
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        if (total == 0) {
+            g2d.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+            g2d.setColor(new Color(100, 100, 100));
+            g2d.drawString("No data to display", 50, 50);
+            return;
+        }
+
+        int diameter = Math.min(chartPanel.getWidth(), chartPanel.getHeight()) - 100;
+        int x = (chartPanel.getWidth() - diameter) / 2;
+        int y = 20;
+
+        double startAngle = 0;
+        int colorIndex = 0;
+
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            if (entry.getValue() > 0) {
+                double arcAngle = 360 * (entry.getValue() / total);
+                g2d.setColor(categoryColors[colorIndex % categoryColors.length]);
+                g2d.fillArc(x, y, diameter, diameter, (int) startAngle, (int) arcAngle);
+                startAngle += arcAngle;
+                colorIndex++;
+            }
+        }
+
+        // Legend
+        int legendX = 20;
+        int legendY = y + diameter + 20;
+        int boxSize = 15;
+
+        g2d.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        colorIndex = 0;
+
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            if (entry.getValue() > 0) {
+                g2d.setColor(categoryColors[colorIndex % categoryColors.length]);
+                g2d.fillRect(legendX, legendY, boxSize, boxSize);
+                g2d.setColor(Color.BLACK);
+
+                String label = String.format("%s (%.1f%%)",
+                        entry.getKey(),
+                        (entry.getValue() / total) * 100);
+
+                g2d.drawString(label, legendX + boxSize + 5, legendY + boxSize - 3);
+                legendY += boxSize + 5;
+                colorIndex++;
+            }
+        }
     }
 
     private void addExpense() {
@@ -129,6 +208,7 @@ public class BudgetBee extends JFrame {
 
             updateStats();
             resetInputFields();
+
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Please enter valid numbers for quantity and amount",
                     "Input Error", JOptionPane.ERROR_MESSAGE);
@@ -140,13 +220,10 @@ public class BudgetBee extends JFrame {
 
     private void saveData() {
         try (PrintWriter writer = new PrintWriter("expenses.csv")) {
-            // Write CSV header
             writer.println("Date,Description,Category,Quantity,Amount,Total");
-
             for (int i = 0; i < tableModel.getRowCount(); i++) {
-                // Remove currency symbol before saving
                 String amount = tableModel.getValueAt(i, 4).toString().replace("৳", "").trim();
-                String total = tableModel.getValueAt(i, 5).toString().replace("৳", "").trim();
+                String totalStr = tableModel.getValueAt(i, 5).toString().replace("৳", "").trim();
 
                 writer.println(String.join(",",
                         tableModel.getValueAt(i, 0).toString(),
@@ -154,15 +231,12 @@ public class BudgetBee extends JFrame {
                         tableModel.getValueAt(i, 2).toString(),
                         tableModel.getValueAt(i, 3).toString(),
                         amount,
-                        total
+                        totalStr
                 ));
             }
-
-            JOptionPane.showMessageDialog(this, "Data saved to expenses.csv",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Data saved to expenses.csv", "Success", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this, "Error saving data: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error saving data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -172,7 +246,6 @@ public class BudgetBee extends JFrame {
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             reader.readLine(); // skip header
-
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
@@ -199,12 +272,17 @@ public class BudgetBee extends JFrame {
                     categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + totalCost);
                 }
             }
-
             updateStats();
         } catch (IOException | NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Error loading data: " + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void updateStats() {
+        totalLabel.setText(String.format("Total: $%.2f", total));
+        quantityLabel.setText(String.format("Items: %d", totalItems));
+        averageLabel.setText(String.format("Avg: $%.2f", totalItems > 0 ? total / totalItems : 0));
     }
 
     private void resetInputFields() {
@@ -217,13 +295,6 @@ public class BudgetBee extends JFrame {
         descriptionField.requestFocus();
     }
 
-    private void updateStats() {
-        totalLabel.setText(String.format("Total: $%.2f", total));
-        quantityLabel.setText(String.format("Items: %d", totalItems));
-        averageLabel.setText(String.format("Avg: $%.2f", totalItems > 0 ? total / totalItems : 0));
-    }
-
-    // UI methods
     private JTextField createTextFieldWithPlaceholder(String placeholder) {
         JTextField field = new JTextField();
         field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -234,14 +305,14 @@ public class BudgetBee extends JFrame {
         field.setForeground(Color.GRAY);
         field.setText(placeholder);
 
-        field.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent e) {
+        field.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
                 if (field.getText().equals(placeholder)) {
                     field.setText("");
                     field.setForeground(Color.BLACK);
                 }
             }
-            public void focusLost(java.awt.event.FocusEvent e) {
+            public void focusLost(FocusEvent e) {
                 if (field.getText().isEmpty()) {
                     field.setForeground(Color.GRAY);
                     field.setText(placeholder);
