@@ -68,6 +68,22 @@ public class BudgetBeeTest {
 
         assertTrue(model.getRowCount() > 0, "Data should be loaded from CSV file");
         assertEquals("SaveTest", model.getValueAt(0, 1), "Loaded description should match saved one");
+
+        // assertArrayEquals
+        String[] expected = {"Jul 25", "SaveTest", "Bills", "1", "৳20.00", "৳20.00"};
+        String[] actual = new String[6];
+        for (int i = 0; i < 6; i++) actual[i] = model.getValueAt(0, i).toString();
+        assertArrayEquals(expected, actual, "Row data should match what was saved");
+
+        // assertLinesMatch (useful if reading lines from file)
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            reader.readLine(); // skip header
+            List<String> expectedLines = List.of("Jul 25,SaveTest,Bills,1,20.00,20.00");
+            List<String> actualLines = List.of(reader.readLine());
+            assertLinesMatch(expectedLines, actualLines, "CSV lines should match expected values");
+        } catch (IOException e) {
+            fail("File reading failed");
+        }
     }
 
     @Test
