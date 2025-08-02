@@ -23,7 +23,7 @@ public class BudgetBeeTest {
 
     @Test
     public void testInitialState() {
-        assertNotNull(tracker, "ExpenseTracker instance should not be null");
+        assertNotNull(tracker, "BudgetBee instance should not be null");
 
         JTable table = getPrivateField(tracker, "table", JTable.class);
         DefaultTableModel model = (DefaultTableModel) table.getModel();
