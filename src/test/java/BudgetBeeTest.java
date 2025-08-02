@@ -75,7 +75,7 @@ public class BudgetBeeTest {
         for (int i = 0; i < 6; i++) actual[i] = model.getValueAt(0, i).toString();
         assertArrayEquals(expected, actual, "Row data should match what was saved");
 
-        // assertLinesMatch (useful if reading lines from file)
+       // assertLinesMatch 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             reader.readLine(); // skip header
             List<String> expectedLines = List.of("Jul 25,SaveTest,Bills,1,20.00,20.00");
