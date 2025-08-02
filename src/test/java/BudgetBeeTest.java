@@ -100,6 +100,17 @@ public class BudgetBeeTest {
         assertEquals(0, model.getRowCount(), "Row should be deleted from table");
     }
 
+    @Test
+    public void testObjectReferenceSameAndNotSame() {
+        JTable table1 = getPrivateField(tracker, "table", JTable.class);
+        JTable table2 = getPrivateField(tracker, "table", JTable.class);
+
+        JTable newTable = new JTable();
+
+        assertSame(table1, table2, "Same reference should be same");
+        assertNotSame(table1, newTable, "Different JTable instances should not be same");
+    }
+    
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
