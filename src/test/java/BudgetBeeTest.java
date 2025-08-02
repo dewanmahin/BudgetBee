@@ -1,9 +1,13 @@
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.io.*;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -110,11 +114,32 @@ public class BudgetBeeTest {
         assertSame(table1, table2, "Same reference should be same");
         assertNotSame(table1, newTable, "Different JTable instances should not be same");
     }
-    
-    @AfterEach
-    public void tearDown() {
-        File file = new File("expenses.csv");
-        if (file.exists()) file.delete();
+
+    // @ValueSource Test
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 4})
+    public void testTotalCalculationWithDifferentQuantities(int quantity) {
+        JTextField descField = getPrivateField(tracker, "descriptionField", JTextField.class);
+        JTextField qtyField = getPrivateField(tracker, "quantityField", JTextField.class);
+        JTextField amtField = getPrivateField(tracker, "amountField", JTextField.class);
+        JComboBox<String> categoryCombo = getPrivateField(tracker, "categoryCombo", JComboBox.class);
+
+        descField.setText("Burger");
+        amtField.setText("50"); // amount per item
+        qtyField.setText(String.valueOf(quantity));
+        categoryCombo.setSelectedItem("Food");
+
+        invokePrivateMethod(tracker, "addExpense");
+
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        int lastRow = table.getRowCount() - 1;
+
+        String totalCell = table.getValueAt(lastRow, 5).toString().replace("৳", "").trim();
+        double totalInTable = Double.parseDouble(totalCell);
+
+        double expectedTotal = 50 * quantity;
+
+        assertEquals(expectedTotal, totalInTable, 0.01, "Total should be quantity × amount");
     }
 
     // === Utility Methods for Reflection ===
