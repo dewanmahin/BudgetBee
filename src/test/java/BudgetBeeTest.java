@@ -26,6 +26,9 @@ public class BudgetBeeTest {
 
         assertEquals(0, model.getRowCount(), "Initial table row count should be zero");
         assertEquals(6, model.getColumnCount(), "There should be 6 columns in the table");
+
+        assertTrue(model.getRowCount() == 0, "Table should be empty initially");
+        assertFalse(model.getColumnCount() < 6, "Table should not have fewer than 6 columns");
     }
 
     @Test
