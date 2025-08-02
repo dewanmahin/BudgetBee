@@ -28,6 +28,27 @@ public class BudgetBeeTest {
         assertEquals(6, model.getColumnCount(), "There should be 6 columns in the table");
     }
 
+    @Test
+    public void testSaveAndLoadData() {
+        // Clear any existing CSV content before test
+        File file = new File("expenses.csv");
+        if (file.exists()) file.delete();
+
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+        model.setRowCount(0); // Ensure table is empty
+
+        model.addRow(new Object[]{"Jul 25", "SaveTest", "Bills", 1, "৳20.00", "৳20.00"});
+        invokePrivateMethod(tracker, "saveData");
+
+        // Clear table again to simulate loading from fresh state
+        model.setRowCount(0);
+        invokePrivateMethod(tracker, "loadData");
+
+        assertTrue(model.getRowCount() > 0, "Data should be loaded from CSV file");
+        assertEquals("SaveTest", model.getValueAt(0, 1), "Loaded description should match saved one");
+    }
+
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
