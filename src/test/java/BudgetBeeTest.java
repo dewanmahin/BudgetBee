@@ -29,6 +29,20 @@ public class BudgetBeeTest {
     }
 
     @Test
+    public void testDeleteExpense() {
+        // Add a dummy row manually
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+
+        model.addRow(new Object[]{"Jul 25", "Test", "Food", 2, "৳50.00", "৳100.00"});
+        table.setRowSelectionInterval(0, 0);
+
+        invokePrivateMethod(tracker, "deleteSelectedExpense");
+
+        assertEquals(0, model.getRowCount(), "Row should be deleted from table");
+    }
+
+    @Test
     public void testSaveAndLoadData() {
         // Clear any existing CSV content before test
         File file = new File("expenses.csv");
