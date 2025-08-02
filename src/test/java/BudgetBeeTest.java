@@ -63,6 +63,24 @@ public class BudgetBeeTest {
         assertEquals("SaveTest", model.getValueAt(0, 1), "Loaded description should match saved one");
     }
 
+    @Test
+    public void testCategoryTotalsAfterAdd() {
+        JTextField descField = getPrivateField(tracker, "descriptionField", JTextField.class);
+        JTextField qtyField = getPrivateField(tracker, "quantityField", JTextField.class);
+        JTextField amtField = getPrivateField(tracker, "amountField", JTextField.class);
+        JComboBox<String> categoryCombo = getPrivateField(tracker, "categoryCombo", JComboBox.class);
+
+        descField.setText("Pizza");
+        qtyField.setText("3");
+        amtField.setText("30");
+        categoryCombo.setSelectedItem("Food");
+
+        invokePrivateMethod(tracker, "addExpense");
+
+        Map<String, Double> categoryTotals = getPrivateField(tracker, "categoryTotals", Map.class);
+        assertEquals(90.0, categoryTotals.get("Food"), 0.01, "Category total should reflect the added expense");
+    }
+
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
