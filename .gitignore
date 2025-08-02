@@ -1,7 +1,12 @@
+# Build output
 target/
-!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+# Allow test source directory to be committed
+!src/test/
+!src/test/**
+!src/test/**/*.java
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
