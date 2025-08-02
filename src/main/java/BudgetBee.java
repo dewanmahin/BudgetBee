@@ -1,5 +1,6 @@
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.event.TableModelEvent;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -115,8 +116,114 @@ public class BudgetBee extends JFrame {
         saveButton.addActionListener(e -> saveData());
         deleteButton.addActionListener(e -> deleteSelectedExpense()); // New
 
+        // Add cell editor listener for editing functionality
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    editSelectedCell();
+                }
+            }
+        });
+
+        // Add table model listener to detect changes
+        tableModel.addTableModelListener(e -> {
+            if (e.getType() == TableModelEvent.UPDATE) {
+                int row = e.getFirstRow();
+                int column = e.getColumn();
+
+                // If quantity or amount was changed, recalculate total
+                if (column == 3 || column == 4) {
+                    recalculateRowTotal(row);
+                }
+
+                // If category was changed, update category totals
+                if (column == 2) {
+                    updateCategoryTotals();
+                }
+
+                // Update stats and chart
+                updateStats();
+                chartPanel.repaint();
+                saveData();
+            }
+        });
+
         loadData();
         chartPanel.repaint();
+    }
+
+    private void recalculateRowTotal(int row) {
+        try {
+            // Get current values
+            int quantity = Integer.parseInt(table.getValueAt(row, 3).toString());
+            double amount = Double.parseDouble(table.getValueAt(row, 4).toString().replace("৳", "").trim());
+
+            // Calculate new total
+            double newTotal = quantity * amount;
+
+            // Update the total in the table
+            table.setValueAt("৳" + String.format("%.2f", newTotal), row, 5);
+
+            // Recalculate all totals
+            recalculateAllTotals();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Invalid input. Please enter valid numbers.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void recalculateAllTotals() {
+        total = 0;
+        totalItems = 0;
+        categoryTotals.replaceAll((k, v) -> 0.0);
+
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            try {
+                String category = table.getValueAt(i, 2).toString();
+                int quantity = Integer.parseInt(table.getValueAt(i, 3).toString());
+                double amount = Double.parseDouble(table.getValueAt(i, 4).toString().replace("৳", "").trim());
+                double rowTotal = quantity * amount;
+
+                total += rowTotal;
+                totalItems += quantity;
+                categoryTotals.put(category, categoryTotals.get(category) + rowTotal);
+
+                // Ensure the displayed total is correct
+                table.setValueAt("৳" + String.format("%.2f", rowTotal), i, 5);
+            } catch (Exception ex) {
+
+            }
+        }
+    }
+
+    private void updateCategoryTotals() {
+        // Reset all category totals
+        categoryTotals.replaceAll((k, v) -> 0.0);
+
+        // Recalculate category totals
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            try {
+                String category = table.getValueAt(i, 2).toString();
+                double rowTotal = Double.parseDouble(table.getValueAt(i, 5).toString().replace("৳", "").trim());
+                categoryTotals.put(category, categoryTotals.get(category) + rowTotal);
+            } catch (Exception ex) {
+
+            }
+        }
+    }
+
+    private void editSelectedCell() {
+        int row = table.getSelectedRow();
+        int col = table.getSelectedColumn();
+
+        if (row == -1 || col == -1) return;
+
+        // Skip date and total columns (they're not editable)
+        if (col == 0 || col == 5) return;
+
+        table.editCellAt(row, col);
+        table.getEditorComponent().requestFocus();
     }
 
     private void deleteSelectedExpense() {
