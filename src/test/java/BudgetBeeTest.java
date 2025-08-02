@@ -28,20 +28,22 @@ public class BudgetBeeTest {
         assertEquals(6, model.getColumnCount(), "There should be 6 columns in the table");
     }
 
-<<<<<<< HEAD
-=======
     @Test
-    public void testDeleteExpense() {
-        // Add a dummy row manually
-        JTable table = getPrivateField(tracker, "table", JTable.class);
-        DefaultTableModel model = (DefaultTableModel) table.getModel();
+    public void testCategoryTotalsAfterAdd() {
+        JTextField descField = getPrivateField(tracker, "descriptionField", JTextField.class);
+        JTextField qtyField = getPrivateField(tracker, "quantityField", JTextField.class);
+        JTextField amtField = getPrivateField(tracker, "amountField", JTextField.class);
+        JComboBox<String> categoryCombo = getPrivateField(tracker, "categoryCombo", JComboBox.class);
 
-        model.addRow(new Object[]{"Jul 25", "Test", "Food", 2, "৳50.00", "৳100.00"});
-        table.setRowSelectionInterval(0, 0);
+        descField.setText("Pizza");
+        qtyField.setText("3");
+        amtField.setText("30");
+        categoryCombo.setSelectedItem("Food");
 
-        invokePrivateMethod(tracker, "deleteSelectedExpense");
+        invokePrivateMethod(tracker, "addExpense");
 
-        assertEquals(0, model.getRowCount(), "Row should be deleted from table");
+        Map<String, Double> categoryTotals = getPrivateField(tracker, "categoryTotals", Map.class);
+        assertEquals(90.0, categoryTotals.get("Food"), 0.01, "Category total should reflect the added expense");
     }
 
     @Test
@@ -62,28 +64,23 @@ public class BudgetBeeTest {
         invokePrivateMethod(tracker, "loadData");
 
         assertTrue(model.getRowCount() > 0, "Data should be loaded from CSV file");
-        assertEquals("SaveTest", model.getValueAt(0, 1), "Loaded description should match saved one");
-    }
-
-    @Test
-    public void testCategoryTotalsAfterAdd() {
-        JTextField descField = getPrivateField(tracker, "descriptionField", JTextField.class);
-        JTextField qtyField = getPrivateField(tracker, "quantityField", JTextField.class);
-        JTextField amtField = getPrivateField(tracker, "amountField", JTextField.class);
-        JComboBox<String> categoryCombo = getPrivateField(tracker, "categoryCombo", JComboBox.class);
-
-        descField.setText("Pizza");
-        qtyField.setText("3");
-        amtField.setText("30");
-        categoryCombo.setSelectedItem("Food");
-
-        invokePrivateMethod(tracker, "addExpense");
-
-        Map<String, Double> categoryTotals = getPrivateField(tracker, "categoryTotals", Map.class);
-        assertEquals(90.0, categoryTotals.get("Food"), 0.01, "Category total should reflect the added expense");
+        assertEquals("SaveTest", model.getValueAt(0, 1), "Loaded description should match saved one");
     }
 
->>>>>>> 69f23bcedab12ce94e657e432d8fc31d08eeeea8
+    @Test
+    public void testDeleteExpense() {
+        // Add a dummy row manually
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+
+        model.addRow(new Object[]{"Jul 25", "Test", "Food", 2, "৳50.00", "৳100.00"});
+        table.setRowSelectionInterval(0, 0);
+
+        invokePrivateMethod(tracker, "deleteSelectedExpense");
+
+        assertEquals(0, model.getRowCount(), "Row should be deleted from table");
+    }
+
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
