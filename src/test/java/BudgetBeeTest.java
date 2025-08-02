@@ -55,7 +55,7 @@ public class BudgetBeeTest {
 
     @Test
     public void testSaveAndLoadData() {
-        // Clear any existing CSV content before test
+        // Clear any existing CSV content before starting test
         File file = new File("expenses.csv");
         if (file.exists()) file.delete();
 
@@ -66,7 +66,7 @@ public class BudgetBeeTest {
         model.addRow(new Object[]{"Jul 25", "SaveTest", "Bills", 1, "৳20.00", "৳20.00"});
         invokePrivateMethod(tracker, "saveData");
 
-        // Clear table again to simulate loading from fresh state
+        // Clearing table again to simulate loading from fresh state
         model.setRowCount(0);
         invokePrivateMethod(tracker, "loadData");
 
@@ -92,7 +92,7 @@ public class BudgetBeeTest {
 
     @Test
     public void testDeleteExpense() {
-        // Add a dummy row manually
+        // Adding a dummy row manually
         JTable table = getPrivateField(tracker, "table", JTable.class);
         DefaultTableModel model = (DefaultTableModel) table.getModel();
 
@@ -140,6 +140,34 @@ public class BudgetBeeTest {
         double expectedTotal = 50 * quantity;
 
         assertEquals(expectedTotal, totalInTable, 0.01, "Total should be quantity × amount");
+    }
+
+    // @CsvSource Test
+    @ParameterizedTest
+    @CsvSource({
+            "2, 10, 20.00",
+            "3, 15, 45.00",
+            "0, 100, 0.00"
+    })
+    public void testTotalCalculationWithCsvSource(int qty, double amt, double expectedTotal) throws Exception {
+        getPrivateField(tracker, "descriptionField", JTextField.class).setText("Item");
+        getPrivateField(tracker, "quantityField", JTextField.class).setText(String.valueOf(qty));
+        getPrivateField(tracker, "amountField", JTextField.class).setText(String.valueOf(amt));
+        getPrivateField(tracker, "categoryCombo", JComboBox.class).setSelectedItem("Bills");
+
+        invokePrivateMethod(tracker, "addExpense");
+
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        int lastRow = table.getRowCount() - 1;
+        double actualTotal = Double.parseDouble(table.getValueAt(lastRow, 5).toString().replace("৳", "").trim());
+
+        assertEquals(expectedTotal, actualTotal, 0.01);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        File file = new File("expenses.csv");
+        if (file.exists()) file.delete();
     }
 
     // === Utility Methods for Reflection ===
