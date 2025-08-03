@@ -182,6 +182,38 @@ public class BudgetBeeTest {
         assertEquals(expectedTotal, actualTotal, 0.01);
     }
 
+    // MethodSource test
+    @ParameterizedTest
+    @MethodSource("expenseDataProvider")
+    public void testTotalCalculationWithMethodSource(int qty, double amt, double expectedTotal) {
+        JTextField descField = getPrivateField(tracker, "descriptionField", JTextField.class);
+        JTextField qtyField = getPrivateField(tracker, "quantityField", JTextField.class);
+        JTextField amtField = getPrivateField(tracker, "amountField", JTextField.class);
+        JComboBox<String> categoryCombo = getPrivateField(tracker, "categoryCombo", JComboBox.class);
+
+        descField.setText("Item");
+        qtyField.setText(String.valueOf(qty));
+        amtField.setText(String.valueOf(amt));
+        categoryCombo.setSelectedItem("Bills");
+
+        invokePrivateMethod(tracker, "addExpense");
+
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        int lastRow = table.getRowCount() - 1;
+        double actualTotal = Double.parseDouble(table.getValueAt(lastRow, 5).toString().replace("৳", "").trim());
+
+        assertEquals(expectedTotal, actualTotal, 0.01);
+    }
+
+    // Static method to supply test data
+    private static Stream<Arguments> expenseDataProvider() {
+        return Stream.of(
+                Arguments.of(1, 10.0, 10.00),
+                Arguments.of(3, 15.0, 45.00),
+                Arguments.of(0, 100.0, 0.00)
+        );
+    }
+
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
