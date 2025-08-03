@@ -164,6 +164,24 @@ public class BudgetBeeTest {
         assertEquals(expectedTotal, actualTotal, 0.01);
     }
 
+    // CsvFileSource test
+    @ParameterizedTest
+    @CsvFileSource(resources = "/testdata.csv", numLinesToSkip = 1)
+    public void testTotalCalculationWithCsvFileSource(int qty, double amt, double expectedTotal) throws Exception {
+        getPrivateField(tracker, "descriptionField", JTextField.class).setText("Item");
+        getPrivateField(tracker, "quantityField", JTextField.class).setText(String.valueOf(qty));
+        getPrivateField(tracker, "amountField", JTextField.class).setText(String.valueOf(amt));
+        getPrivateField(tracker, "categoryCombo", JComboBox.class).setSelectedItem("Bills");
+
+        invokePrivateMethod(tracker, "addExpense");
+
+        JTable table = getPrivateField(tracker, "table", JTable.class);
+        int lastRow = table.getRowCount() - 1;
+        double actualTotal = Double.parseDouble(table.getValueAt(lastRow, 5).toString().replace("৳", "").trim());
+
+        assertEquals(expectedTotal, actualTotal, 0.01);
+    }
+
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
