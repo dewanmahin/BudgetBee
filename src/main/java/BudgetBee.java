@@ -116,7 +116,6 @@ public class BudgetBee extends JFrame {
         saveButton.addActionListener(e -> saveData());
         deleteButton.addActionListener(e -> deleteSelectedExpense()); // New
 
-        // Add cell editor listener for editing functionality
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -126,23 +125,20 @@ public class BudgetBee extends JFrame {
             }
         });
 
-        // Add table model listener to detect changes
+        // Adding table model listener to detect changes
         tableModel.addTableModelListener(e -> {
             if (e.getType() == TableModelEvent.UPDATE) {
                 int row = e.getFirstRow();
                 int column = e.getColumn();
 
-                // If quantity or amount was changed, recalculate total
                 if (column == 3 || column == 4) {
                     recalculateRowTotal(row);
                 }
 
-                // If category was changed, update category totals
                 if (column == 2) {
                     updateCategoryTotals();
                 }
 
-                // Update stats and chart
                 updateStats();
                 chartPanel.repaint();
                 saveData();
@@ -155,17 +151,13 @@ public class BudgetBee extends JFrame {
 
     private void recalculateRowTotal(int row) {
         try {
-            // Get current values
             int quantity = Integer.parseInt(table.getValueAt(row, 3).toString());
             double amount = Double.parseDouble(table.getValueAt(row, 4).toString().replace("৳", "").trim());
 
-            // Calculate new total
             double newTotal = quantity * amount;
 
-            // Update the total in the table
             table.setValueAt("৳" + String.format("%.2f", newTotal), row, 5);
 
-            // Recalculate all totals
             recalculateAllTotals();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
@@ -198,10 +190,8 @@ public class BudgetBee extends JFrame {
     }
 
     private void updateCategoryTotals() {
-        // Reset all category totals
         categoryTotals.replaceAll((k, v) -> 0.0);
 
-        // Recalculate category totals
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             try {
                 String category = table.getValueAt(i, 2).toString();
@@ -219,7 +209,6 @@ public class BudgetBee extends JFrame {
 
         if (row == -1 || col == -1) return;
 
-        // Skip date and total columns (they're not editable)
         if (col == 0 || col == 5) return;
 
         table.editCellAt(row, col);
@@ -242,8 +231,8 @@ public class BudgetBee extends JFrame {
             totalItems -= quantity;
             categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) - totalCost);
 
-            tableModel.removeRow(selectedRow); // Remove from table
-            saveData();                        // Rewrite updated table to CSV
+            tableModel.removeRow(selectedRow);
+            saveData();
 
             updateStats();
             chartPanel.repaint();

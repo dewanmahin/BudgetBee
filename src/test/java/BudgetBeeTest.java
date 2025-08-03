@@ -1,7 +1,6 @@
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.*;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -9,6 +8,7 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -55,18 +55,16 @@ public class BudgetBeeTest {
 
     @Test
     public void testSaveAndLoadData() {
-        // Clear any existing CSV content before starting test
         File file = new File("expenses.csv");
         if (file.exists()) file.delete();
 
         JTable table = getPrivateField(tracker, "table", JTable.class);
         DefaultTableModel model = (DefaultTableModel) table.getModel();
-        model.setRowCount(0); // Ensure table is empty
+        model.setRowCount(0);
 
         model.addRow(new Object[]{"Jul 25", "SaveTest", "Bills", 1, "৳20.00", "৳20.00"});
         invokePrivateMethod(tracker, "saveData");
 
-        // Clearing table again to simulate loading from fresh state
         model.setRowCount(0);
         invokePrivateMethod(tracker, "loadData");
 
@@ -79,7 +77,7 @@ public class BudgetBeeTest {
         for (int i = 0; i < 6; i++) actual[i] = model.getValueAt(0, i).toString();
         assertArrayEquals(expected, actual, "Row data should match what was saved");
 
-       // assertLinesMatch 
+        // assertLinesMatch
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             reader.readLine(); // skip header
             List<String> expectedLines = List.of("Jul 25,SaveTest,Bills,1,20.00,20.00");
@@ -92,7 +90,6 @@ public class BudgetBeeTest {
 
     @Test
     public void testDeleteExpense() {
-        // Adding a dummy row manually
         JTable table = getPrivateField(tracker, "table", JTable.class);
         DefaultTableModel model = (DefaultTableModel) table.getModel();
 
@@ -105,7 +102,7 @@ public class BudgetBeeTest {
     }
 
     @Test
-    public void testObjectReferenceSameAndNotSame() {
+    public void testObjectReference() {
         JTable table1 = getPrivateField(tracker, "table", JTable.class);
         JTable table2 = getPrivateField(tracker, "table", JTable.class);
 
@@ -118,14 +115,14 @@ public class BudgetBeeTest {
     // @ValueSource Test
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 4})
-    public void testTotalCalculationWithDifferentQuantities(int quantity) {
+    public void testTotalCalculationWithDiffQty(int quantity) {
         JTextField descField = getPrivateField(tracker, "descriptionField", JTextField.class);
         JTextField qtyField = getPrivateField(tracker, "quantityField", JTextField.class);
         JTextField amtField = getPrivateField(tracker, "amountField", JTextField.class);
         JComboBox<String> categoryCombo = getPrivateField(tracker, "categoryCombo", JComboBox.class);
 
         descField.setText("Burger");
-        amtField.setText("50"); // amount per item
+        amtField.setText("50");
         qtyField.setText(String.valueOf(quantity));
         categoryCombo.setSelectedItem("Food");
 
@@ -183,6 +180,13 @@ public class BudgetBeeTest {
     }
 
     // MethodSource test
+    private static Stream<Arguments> expenseDataProvider() {
+        return Stream.of(
+                Arguments.of(1, 10.0, 10.00),
+                Arguments.of(3, 15.0, 45.00),
+                Arguments.of(0, 100.0, 0.00)
+        );
+    }
     @ParameterizedTest
     @MethodSource("expenseDataProvider")
     public void testTotalCalculationWithMethodSource(int qty, double amt, double expectedTotal) {
@@ -205,22 +209,11 @@ public class BudgetBeeTest {
         assertEquals(expectedTotal, actualTotal, 0.01);
     }
 
-    // Static method to supply test data
-    private static Stream<Arguments> expenseDataProvider() {
-        return Stream.of(
-                Arguments.of(1, 10.0, 10.00),
-                Arguments.of(3, 15.0, 45.00),
-                Arguments.of(0, 100.0, 0.00)
-        );
-    }
-
     @AfterEach
     public void tearDown() {
         File file = new File("expenses.csv");
         if (file.exists()) file.delete();
     }
-
-    // === Utility Methods for Reflection ===
 
     @SuppressWarnings("unchecked")
     private <T> T getPrivateField(Object obj, String fieldName, Class<T> clazz) {
