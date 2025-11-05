@@ -16,10 +16,10 @@ public class BudgetBeeTest {
 
     private BudgetBee tracker;
 
-    @BeforeEach
-    public void setUp() {
-        tracker = new BudgetBee();
-    }
+//    @BeforeEach
+//    public void setUp() {
+//        tracker = new BudgetBee();
+//    }
 
     @Test
     public void testInitialState() {
