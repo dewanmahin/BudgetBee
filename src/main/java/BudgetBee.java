@@ -11,6 +11,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BudgetBee extends JFrame {
+    private static BudgetBee instance;
+
     private JTextField descriptionField, amountField, quantityField;
     private JComboBox<String> categoryCombo;
     private DefaultTableModel tableModel;
@@ -28,7 +30,7 @@ public class BudgetBee extends JFrame {
             new Color(153, 102, 255), new Color(255, 159, 64)
     };
 
-    public BudgetBee() {
+    private BudgetBee() {
         setTitle("💰 BudgetBee");
         setSize(1000, 700);
         setLocationRelativeTo(null);
@@ -289,6 +291,13 @@ public class BudgetBee extends JFrame {
         }
     }
 
+    public static synchronized BudgetBee getInstance() {
+        if (instance == null) {
+            instance = new BudgetBee();
+        }
+        return instance;
+    }
+
     private void addExpense() {
         try {
             String desc = descriptionField.getText().trim();
@@ -477,12 +486,7 @@ public class BudgetBee extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            BudgetBee app = new BudgetBee();
+            BudgetBee app = BudgetBee.getInstance();
             app.setVisible(true);
         });
     }
