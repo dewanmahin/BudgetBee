@@ -10,10 +10,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+// ===== Chart Strategy Interfaces =====
 interface ChartStrategy {
     void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors);
 }
 
+// ===== Pie Chart Strategy Implementation =====
 class PieChartStrategy implements ChartStrategy {
     @Override
     public void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors) {
@@ -209,6 +211,15 @@ public class BudgetBee extends JFrame {
         chartPanel.repaint();
     }
 
+    // ===== Singleton =====
+    public static synchronized BudgetBee getInstance() {
+        if (instance == null) {
+            instance = new BudgetBee();
+        }
+        return instance;
+    }
+
+    // ===== Chart Strategy Setter =====
     public void setChartStrategy(ChartStrategy strategy) {
         this.chartStrategy = strategy;
         chartPanel.repaint();
@@ -305,13 +316,6 @@ public class BudgetBee extends JFrame {
             JOptionPane.showMessageDialog(this, "Failed to delete row properly: " + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    public static synchronized BudgetBee getInstance() {
-        if (instance == null) {
-            instance = new BudgetBee();
-        }
-        return instance;
     }
 
     private void addExpense() {
