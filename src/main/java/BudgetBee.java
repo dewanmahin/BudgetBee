@@ -10,6 +10,61 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+// ===== Expense Data Class =====
+class Expense {
+    String date;
+    String description;
+    String category;
+    int quantity;
+    double amount;
+
+    public Expense(String date, String description, String category, int quantity, double amount) {
+        this.date = date;
+        this.description = description;
+        this.category = category;
+        this.quantity = quantity;
+        this.amount = amount;
+    }
+
+    public double getTotal() {
+        return quantity * amount;
+    }
+}
+
+// ===== Iterator Interface =====
+interface ExpenseIterator {
+    boolean hasNext();
+    Expense next();
+}
+
+// ===== TableModel-based Iterator =====
+class TableModelExpenseIterator implements ExpenseIterator {
+    private final DefaultTableModel model;
+    private int index = 0;
+
+    public TableModelExpenseIterator(DefaultTableModel model) {
+        this.model = model;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index < model.getRowCount();
+    }
+
+    @Override
+    public Expense next() {
+        if (!hasNext()) return null;
+
+        String date = model.getValueAt(index, 0).toString();
+        String description = model.getValueAt(index, 1).toString();
+        String category = model.getValueAt(index, 2).toString();
+        int quantity = Integer.parseInt(model.getValueAt(index, 3).toString());
+        double amount = Double.parseDouble(model.getValueAt(index, 4).toString().replace("৳", "").trim());
+        index++;
+        return new Expense(date, description, category, quantity, amount);
+    }
+}
+
 // ===== Chart Strategy Interfaces =====
 interface ChartStrategy {
     void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors);
@@ -87,6 +142,7 @@ public class BudgetBee extends JFrame {
             new Color(153, 102, 255), new Color(255, 159, 64)
     };
 
+    // Strategy Pattern field
     private ChartStrategy chartStrategy = new PieChartStrategy();
 
     private BudgetBee() {
@@ -151,6 +207,7 @@ public class BudgetBee extends JFrame {
 
         mainPanel.add(inputPanel, BorderLayout.SOUTH);
 
+        // ===== Chart Panel =====
         chartPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -241,41 +298,31 @@ public class BudgetBee extends JFrame {
         }
     }
 
+    // ===== Recalculate Totals using Iterator =====
     private void recalculateAllTotals() {
         total = 0;
         totalItems = 0;
         categoryTotals.replaceAll((k, v) -> 0.0);
 
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            try {
-                String category = table.getValueAt(i, 2).toString();
-                int quantity = Integer.parseInt(table.getValueAt(i, 3).toString());
-                double amount = Double.parseDouble(table.getValueAt(i, 4).toString().replace("৳", "").trim());
-                double rowTotal = quantity * amount;
+        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
+        int rowIndex = 0;
+        while (it.hasNext()) {
+            Expense e = it.next();
+            total += e.getTotal();
+            totalItems += e.quantity;
+            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
 
-                total += rowTotal;
-                totalItems += quantity;
-                categoryTotals.put(category, categoryTotals.get(category) + rowTotal);
-
-                // Ensure the displayed total is correct
-                table.setValueAt("৳" + String.format("%.2f", rowTotal), i, 5);
-            } catch (Exception ex) {
-
-            }
+            tableModel.setValueAt("৳" + String.format("%.2f", e.getTotal()), rowIndex++, 5);
         }
     }
 
     private void updateCategoryTotals() {
         categoryTotals.replaceAll((k, v) -> 0.0);
 
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            try {
-                String category = table.getValueAt(i, 2).toString();
-                double rowTotal = Double.parseDouble(table.getValueAt(i, 5).toString().replace("৳", "").trim());
-                categoryTotals.put(category, categoryTotals.get(category) + rowTotal);
-            } catch (Exception ex) {
-
-            }
+        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
+        while (it.hasNext()) {
+            Expense e = it.next();
+            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
         }
     }
 
@@ -298,24 +345,11 @@ public class BudgetBee extends JFrame {
             return;
         }
 
-        try {
-            String category = tableModel.getValueAt(selectedRow, 2).toString();
-            int quantity = Integer.parseInt(tableModel.getValueAt(selectedRow, 3).toString());
-            double totalCost = Double.parseDouble(tableModel.getValueAt(selectedRow, 5).toString().replace("৳", "").trim());
-
-            total -= totalCost;
-            totalItems -= quantity;
-            categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) - totalCost);
-
-            tableModel.removeRow(selectedRow);
-            saveData();
-
-            updateStats();
-            chartPanel.repaint();
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Failed to delete row properly: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        tableModel.removeRow(selectedRow);
+        recalculateAllTotals();
+        updateStats();
+        chartPanel.repaint();
+        saveData();
     }
 
     private void addExpense() {
@@ -332,22 +366,13 @@ public class BudgetBee extends JFrame {
             double amount = Double.parseDouble(amtText);
 
             String category = (String) categoryCombo.getSelectedItem();
-            double totalCost = quantity * amount;
             String date = new SimpleDateFormat("MMM dd").format(new Date());
 
             tableModel.addRow(new Object[]{
-                    date,
-                    desc,
-                    category,
-                    quantity,
-                    "৳" + String.format("%.2f", amount),
-                    "৳" + String.format("%.2f", totalCost)
+                    date, desc, category, quantity, "৳" + String.format("%.2f", amount), "৳" + String.format("%.2f", quantity * amount)
             });
 
-            total += totalCost;
-            totalItems += quantity;
-            categoryTotals.put(category, categoryTotals.get(category) + totalCost);
-
+            recalculateAllTotals();
             updateStats();
             resetInputFields();
         } catch (NumberFormatException ex) {
@@ -388,26 +413,14 @@ public class BudgetBee extends JFrame {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
                 if (parts.length == 6) {
-                    String date = parts[0];
-                    String desc = parts[1];
-                    String category = parts[2];
+                    String date = parts[0], desc = parts[1], category = parts[2];
                     int quantity = Integer.parseInt(parts[3]);
-                    String amountStr = parts[4];
-                    String totalStr = parts[5];
+                    double amount = Double.parseDouble(parts[4]);
+                    tableModel.addRow(new Object[]{date, desc, category, quantity, "৳" + parts[4], "৳" + parts[5]});
 
-                    tableModel.addRow(new Object[]{
-                            date,
-                            desc,
-                            category,
-                            quantity,
-                            "৳" + amountStr,
-                            "৳" + totalStr
-                    });
-
-                    double totalCost = Double.parseDouble(totalStr);
-                    total += totalCost;
+                    total += quantity * amount;
                     totalItems += quantity;
-                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + totalCost);
+                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + quantity * amount);
                 }
             }
             updateStats();
