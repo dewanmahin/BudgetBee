@@ -15,7 +15,122 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
 // ===== Main Context Class (Singleton) =====
+=======
+// ===== Expense Data Class =====
+class Expense {
+    String date;
+    String description;
+    String category;
+    int quantity;
+    double amount;
+
+    public Expense(String date, String description, String category, int quantity, double amount) {
+        this.date = date;
+        this.description = description;
+        this.category = category;
+        this.quantity = quantity;
+        this.amount = amount;
+    }
+
+    public double getTotal() {
+        return quantity * amount;
+    }
+}
+
+// ===== Iterator Interface =====
+interface ExpenseIterator {
+    boolean hasNext();
+    Expense next();
+}
+
+// ===== TableModel-based Iterator =====
+class TableModelExpenseIterator implements ExpenseIterator {
+    private final DefaultTableModel model;
+    private int index = 0;
+
+    public TableModelExpenseIterator(DefaultTableModel model) {
+        this.model = model;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index < model.getRowCount();
+    }
+
+    @Override
+    public Expense next() {
+        if (!hasNext()) return null;
+
+        String date = model.getValueAt(index, 0).toString();
+        String description = model.getValueAt(index, 1).toString();
+        String category = model.getValueAt(index, 2).toString();
+        int quantity = Integer.parseInt(model.getValueAt(index, 3).toString());
+        double amount = Double.parseDouble(model.getValueAt(index, 4).toString().replace("৳", "").trim());
+        index++;
+        return new Expense(date, description, category, quantity, amount);
+    }
+}
+
+// ===== Chart Strategy Interfaces =====
+interface ChartStrategy {
+    void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors);
+}
+
+// ===== Pie Chart Strategy Implementation =====
+class PieChartStrategy implements ChartStrategy {
+    @Override
+    public void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors) {
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        if (total == 0) {
+            g2d.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+            g2d.setColor(new Color(100, 100, 100));
+            g2d.drawString("No data to display", 50, 50);
+            return;
+        }
+
+        int diameter = Math.min(panel.getWidth(), panel.getHeight()) - 100;
+        int x = (panel.getWidth() - diameter) / 2;
+        int y = 20;
+
+        double startAngle = 0;
+        int colorIndex = 0;
+
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            if (entry.getValue() > 0) {
+                double arcAngle = 360 * (entry.getValue() / total);
+                g2d.setColor(colors[colorIndex % colors.length]);
+                g2d.fillArc(x, y, diameter, diameter, (int) startAngle, (int) arcAngle);
+                startAngle += arcAngle;
+                colorIndex++;
+            }
+        }
+
+        // Legend
+        int legendX = 20;
+        int legendY = y + diameter + 20;
+        int boxSize = 15;
+        g2d.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        colorIndex = 0;
+
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            if (entry.getValue() > 0) {
+                g2d.setColor(colors[colorIndex % colors.length]);
+                g2d.fillRect(legendX, legendY, boxSize, boxSize);
+                g2d.setColor(Color.BLACK);
+                String label = String.format("%s (%.1f%%)", entry.getKey(), (entry.getValue() / total) * 100);
+                g2d.drawString(label, legendX + boxSize + 5, legendY + boxSize - 3);
+                legendY += boxSize + 5;
+                colorIndex++;
+            }
+        }
+    }
+}
+
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
 public class BudgetBee extends JFrame {
     private static BudgetBee instance;
 
@@ -37,7 +152,11 @@ public class BudgetBee extends JFrame {
     };
 
     // Strategy Pattern field
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
     private ChartStrategy chartStrategy = new PieChartStrategy(); // Default to Pie
+=======
+    private ChartStrategy chartStrategy = new PieChartStrategy();
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
 
     private BudgetBee() {
         setTitle("💰 BudgetBee");
@@ -111,12 +230,19 @@ public class BudgetBee extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
                 // Delegate drawing to the current strategy
+=======
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
                 chartStrategy.drawChart(g, this, total, categoryTotals, categoryColors);
             }
         };
 
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
         chartPanel.setPreferredSize(new Dimension(350, 0));
+=======
+        chartPanel.setPreferredSize(new Dimension(300, 0));
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
         mainPanel.add(chartPanel, BorderLayout.EAST);
 
         // ===== Action Listeners =====
@@ -185,10 +311,17 @@ public class BudgetBee extends JFrame {
         return instance;
     }
 
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
     // ===== Strategy Setter =====
     public void setChartStrategy(ChartStrategy strategy) {
         this.chartStrategy = strategy;
         chartPanel.repaint(); // Force redraw immediately upon switching
+=======
+    // ===== Chart Strategy Setter =====
+    public void setChartStrategy(ChartStrategy strategy) {
+        this.chartStrategy = strategy;
+        chartPanel.repaint();
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
     }
 
     private void recalculateRowTotal(int row) {
@@ -203,6 +336,7 @@ public class BudgetBee extends JFrame {
         }
     }
 
+    // ===== Recalculate Totals using Iterator =====
     private void recalculateAllTotals() {
         total = 0;
         totalItems = 0;
@@ -216,13 +350,20 @@ public class BudgetBee extends JFrame {
             totalItems += e.quantity;
             categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
 
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
             // Update the total column text in case it drifted
+=======
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
             tableModel.setValueAt("৳" + String.format("%.2f", e.getTotal()), rowIndex++, 5);
         }
     }
 
     private void updateCategoryTotals() {
         categoryTotals.replaceAll((k, v) -> 0.0);
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
+=======
+
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
         ExpenseIterator it = new TableModelExpenseIterator(tableModel);
         while (it.hasNext()) {
             Expense e = it.next();
@@ -245,6 +386,10 @@ public class BudgetBee extends JFrame {
             JOptionPane.showMessageDialog(this, "Please select a row to delete", "No Selection", JOptionPane.WARNING_MESSAGE);
             return;
         }
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
+=======
+
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
         tableModel.removeRow(selectedRow);
         recalculateAllTotals();
         updateStats();
@@ -316,6 +461,10 @@ public class BudgetBee extends JFrame {
                     int quantity = Integer.parseInt(parts[3]);
                     double amount = Double.parseDouble(parts[4]);
                     tableModel.addRow(new Object[]{date, desc, category, quantity, "৳" + parts[4], "৳" + parts[5]});
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
+=======
+
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
                     total += quantity * amount;
                     totalItems += quantity;
                     categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + quantity * amount);
@@ -414,4 +563,15 @@ public class BudgetBee extends JFrame {
             table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
         }
     }
+<<<<<<< HEAD:src/main/java/org/example/BudgetBee.java
 }
+=======
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            BudgetBee app = BudgetBee.getInstance();
+            app.setVisible(true);
+        });
+    }
+}
+>>>>>>> 95dcd31c83bc36f18c18ab6780cae5500f97c6c2:src/main/java/BudgetBee.java
