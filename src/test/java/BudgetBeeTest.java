@@ -1,3 +1,4 @@
+import org.example.BudgetBee;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
@@ -18,12 +19,12 @@ public class BudgetBeeTest {
 
 //    @BeforeEach
 //    public void setUp() {
-//        tracker = new BudgetBee();
+//        tracker = new org.example.BudgetBee();
 //    }
 
     @Test
     public void testInitialState() {
-        assertNotNull(tracker, "BudgetBee instance should not be null");
+        assertNotNull(tracker, "org.example.BudgetBee instance should not be null");
 
         JTable table = getPrivateField(tracker, "table", JTable.class);
         DefaultTableModel model = (DefaultTableModel) table.getModel();

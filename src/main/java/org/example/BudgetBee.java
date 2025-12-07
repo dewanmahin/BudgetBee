@@ -1,3 +1,8 @@
+package org.example;
+
+import org.example.model.Expense;
+import org.example.tools.*; // Imports all your new strategies and iterators
+
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.event.TableModelEvent;
@@ -10,63 +15,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-// ===== Chart Strategy Interfaces =====
-interface ChartStrategy {
-    void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors);
-}
-
-// ===== Pie Chart Strategy Implementation =====
-class PieChartStrategy implements ChartStrategy {
-    @Override
-    public void drawChart(Graphics g, JPanel panel, double total, Map<String, Double> categoryTotals, Color[] colors) {
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        if (total == 0) {
-            g2d.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-            g2d.setColor(new Color(100, 100, 100));
-            g2d.drawString("No data to display", 50, 50);
-            return;
-        }
-
-        int diameter = Math.min(panel.getWidth(), panel.getHeight()) - 100;
-        int x = (panel.getWidth() - diameter) / 2;
-        int y = 20;
-
-        double startAngle = 0;
-        int colorIndex = 0;
-
-        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
-            if (entry.getValue() > 0) {
-                double arcAngle = 360 * (entry.getValue() / total);
-                g2d.setColor(colors[colorIndex % colors.length]);
-                g2d.fillArc(x, y, diameter, diameter, (int) startAngle, (int) arcAngle);
-                startAngle += arcAngle;
-                colorIndex++;
-            }
-        }
-
-        // Legend
-        int legendX = 20;
-        int legendY = y + diameter + 20;
-        int boxSize = 15;
-        g2d.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        colorIndex = 0;
-
-        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
-            if (entry.getValue() > 0) {
-                g2d.setColor(colors[colorIndex % colors.length]);
-                g2d.fillRect(legendX, legendY, boxSize, boxSize);
-                g2d.setColor(Color.BLACK);
-                String label = String.format("%s (%.1f%%)", entry.getKey(), (entry.getValue() / total) * 100);
-                g2d.drawString(label, legendX + boxSize + 5, legendY + boxSize - 3);
-                legendY += boxSize + 5;
-                colorIndex++;
-            }
-        }
-    }
-}
-
+// ===== Main Context Class (Singleton) =====
 public class BudgetBee extends JFrame {
     private static BudgetBee instance;
 
@@ -87,11 +36,12 @@ public class BudgetBee extends JFrame {
             new Color(153, 102, 255), new Color(255, 159, 64)
     };
 
-    private ChartStrategy chartStrategy = new PieChartStrategy();
+    // Strategy Pattern field
+    private ChartStrategy chartStrategy = new PieChartStrategy(); // Default to Pie
 
     private BudgetBee() {
         setTitle("💰 BudgetBee");
-        setSize(1000, 700);
+        setSize(1100, 700); // Widened slightly to fit buttons
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
@@ -119,15 +69,19 @@ public class BudgetBee extends JFrame {
         JPanel inputPanel = new JPanel(new GridLayout(2, 1, 10, 10));
         inputPanel.setBackground(new Color(240, 245, 255));
 
-        JPanel fieldsPanel = new JPanel(new GridLayout(1, 7, 10, 10));
+        // Increased GridLayout columns to 8 to fit the new Switch button
+        JPanel fieldsPanel = new JPanel(new GridLayout(1, 8, 10, 10));
         descriptionField = createTextFieldWithPlaceholder("Description");
         categoryCombo = createCategoryCombo(categories);
         quantityField = createTextFieldWithPlaceholder("Quantity");
         amountField = createTextFieldWithPlaceholder("Amount");
 
-        JButton addButton = createButton("Add Expense", new Color(76, 175, 80));
-        JButton saveButton = createButton("Save Data", new Color(33, 150, 243));
-        JButton deleteButton = createButton("Delete Selected", new Color(244, 67, 54)); // New
+        JButton addButton = createButton("Add", new Color(76, 175, 80));
+        JButton saveButton = createButton("Save", new Color(33, 150, 243));
+        JButton deleteButton = createButton("Delete", new Color(244, 67, 54));
+
+        // NEW: Toggle Strategy Button
+        JButton switchChartBtn = createButton("View Bars", new Color(156, 39, 176));
 
         fieldsPanel.add(descriptionField);
         fieldsPanel.add(categoryCombo);
@@ -136,6 +90,7 @@ public class BudgetBee extends JFrame {
         fieldsPanel.add(addButton);
         fieldsPanel.add(saveButton);
         fieldsPanel.add(deleteButton);
+        fieldsPanel.add(switchChartBtn); // Add the switch button
 
         JPanel statsPanel = new JPanel(new GridLayout(1, 3, 10, 10));
         totalLabel = createStatLabel("Total: $0.00", new Color(192, 57, 43));
@@ -151,16 +106,31 @@ public class BudgetBee extends JFrame {
 
         mainPanel.add(inputPanel, BorderLayout.SOUTH);
 
+        // ===== Chart Panel =====
         chartPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                // Delegate drawing to the current strategy
                 chartStrategy.drawChart(g, this, total, categoryTotals, categoryColors);
             }
         };
 
-        chartPanel.setPreferredSize(new Dimension(300, 0));
+        chartPanel.setPreferredSize(new Dimension(350, 0));
         mainPanel.add(chartPanel, BorderLayout.EAST);
+
+        // ===== Action Listeners =====
+
+        // Switch Strategy Logic
+        switchChartBtn.addActionListener(e -> {
+            if (chartStrategy instanceof PieChartStrategy) {
+                setChartStrategy(new BarChartStrategy());
+                switchChartBtn.setText("View Pie");
+            } else {
+                setChartStrategy(new PieChartStrategy());
+                switchChartBtn.setText("View Bars");
+            }
+        });
 
         addButton.addActionListener(e -> {
             addExpense();
@@ -176,7 +146,7 @@ public class BudgetBee extends JFrame {
         });
 
         saveButton.addActionListener(e -> saveData());
-        deleteButton.addActionListener(e -> deleteSelectedExpense()); // New
+        deleteButton.addActionListener(e -> deleteSelectedExpense());
 
         table.addMouseListener(new MouseAdapter() {
             @Override
@@ -187,20 +157,16 @@ public class BudgetBee extends JFrame {
             }
         });
 
-        // Adding table model listener to detect changes
         tableModel.addTableModelListener(e -> {
             if (e.getType() == TableModelEvent.UPDATE) {
                 int row = e.getFirstRow();
                 int column = e.getColumn();
-
                 if (column == 3 || column == 4) {
                     recalculateRowTotal(row);
                 }
-
                 if (column == 2) {
                     updateCategoryTotals();
                 }
-
                 updateStats();
                 chartPanel.repaint();
                 saveData();
@@ -219,25 +185,21 @@ public class BudgetBee extends JFrame {
         return instance;
     }
 
-    // ===== Chart Strategy Setter =====
+    // ===== Strategy Setter =====
     public void setChartStrategy(ChartStrategy strategy) {
         this.chartStrategy = strategy;
-        chartPanel.repaint();
+        chartPanel.repaint(); // Force redraw immediately upon switching
     }
 
     private void recalculateRowTotal(int row) {
         try {
             int quantity = Integer.parseInt(table.getValueAt(row, 3).toString());
             double amount = Double.parseDouble(table.getValueAt(row, 4).toString().replace("৳", "").trim());
-
             double newTotal = quantity * amount;
-
             table.setValueAt("৳" + String.format("%.2f", newTotal), row, 5);
-
             recalculateAllTotals();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Invalid input. Please enter valid numbers.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Invalid input.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -246,47 +208,33 @@ public class BudgetBee extends JFrame {
         totalItems = 0;
         categoryTotals.replaceAll((k, v) -> 0.0);
 
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            try {
-                String category = table.getValueAt(i, 2).toString();
-                int quantity = Integer.parseInt(table.getValueAt(i, 3).toString());
-                double amount = Double.parseDouble(table.getValueAt(i, 4).toString().replace("৳", "").trim());
-                double rowTotal = quantity * amount;
+        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
+        int rowIndex = 0;
+        while (it.hasNext()) {
+            Expense e = it.next();
+            total += e.getTotal();
+            totalItems += e.quantity;
+            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
 
-                total += rowTotal;
-                totalItems += quantity;
-                categoryTotals.put(category, categoryTotals.get(category) + rowTotal);
-
-                // Ensure the displayed total is correct
-                table.setValueAt("৳" + String.format("%.2f", rowTotal), i, 5);
-            } catch (Exception ex) {
-
-            }
+            // Update the total column text in case it drifted
+            tableModel.setValueAt("৳" + String.format("%.2f", e.getTotal()), rowIndex++, 5);
         }
     }
 
     private void updateCategoryTotals() {
         categoryTotals.replaceAll((k, v) -> 0.0);
-
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            try {
-                String category = table.getValueAt(i, 2).toString();
-                double rowTotal = Double.parseDouble(table.getValueAt(i, 5).toString().replace("৳", "").trim());
-                categoryTotals.put(category, categoryTotals.get(category) + rowTotal);
-            } catch (Exception ex) {
-
-            }
+        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
+        while (it.hasNext()) {
+            Expense e = it.next();
+            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
         }
     }
 
     private void editSelectedCell() {
         int row = table.getSelectedRow();
         int col = table.getSelectedColumn();
-
         if (row == -1 || col == -1) return;
-
-        if (col == 0 || col == 5) return;
-
+        if (col == 0 || col == 5) return; // Date and Total are read-only
         table.editCellAt(row, col);
         table.getEditorComponent().requestFocus();
     }
@@ -297,25 +245,11 @@ public class BudgetBee extends JFrame {
             JOptionPane.showMessageDialog(this, "Please select a row to delete", "No Selection", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        try {
-            String category = tableModel.getValueAt(selectedRow, 2).toString();
-            int quantity = Integer.parseInt(tableModel.getValueAt(selectedRow, 3).toString());
-            double totalCost = Double.parseDouble(tableModel.getValueAt(selectedRow, 5).toString().replace("৳", "").trim());
-
-            total -= totalCost;
-            totalItems -= quantity;
-            categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) - totalCost);
-
-            tableModel.removeRow(selectedRow);
-            saveData();
-
-            updateStats();
-            chartPanel.repaint();
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Failed to delete row properly: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        tableModel.removeRow(selectedRow);
+        recalculateAllTotals();
+        updateStats();
+        chartPanel.repaint();
+        saveData();
     }
 
     private void addExpense() {
@@ -332,26 +266,17 @@ public class BudgetBee extends JFrame {
             double amount = Double.parseDouble(amtText);
 
             String category = (String) categoryCombo.getSelectedItem();
-            double totalCost = quantity * amount;
             String date = new SimpleDateFormat("MMM dd").format(new Date());
 
             tableModel.addRow(new Object[]{
-                    date,
-                    desc,
-                    category,
-                    quantity,
-                    "৳" + String.format("%.2f", amount),
-                    "৳" + String.format("%.2f", totalCost)
+                    date, desc, category, quantity, "৳" + String.format("%.2f", amount), "৳" + String.format("%.2f", quantity * amount)
             });
 
-            total += totalCost;
-            totalItems += quantity;
-            categoryTotals.put(category, categoryTotals.get(category) + totalCost);
-
+            recalculateAllTotals();
             updateStats();
             resetInputFields();
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Please enter valid numbers for quantity and amount", "Input Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter valid numbers", "Input Error", JOptionPane.ERROR_MESSAGE);
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Input Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -381,33 +306,19 @@ public class BudgetBee extends JFrame {
     private void loadData() {
         File file = new File("expenses.csv");
         if (!file.exists()) return;
-
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             reader.readLine(); // skip header
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
                 if (parts.length == 6) {
-                    String date = parts[0];
-                    String desc = parts[1];
-                    String category = parts[2];
+                    String date = parts[0], desc = parts[1], category = parts[2];
                     int quantity = Integer.parseInt(parts[3]);
-                    String amountStr = parts[4];
-                    String totalStr = parts[5];
-
-                    tableModel.addRow(new Object[]{
-                            date,
-                            desc,
-                            category,
-                            quantity,
-                            "৳" + amountStr,
-                            "৳" + totalStr
-                    });
-
-                    double totalCost = Double.parseDouble(totalStr);
-                    total += totalCost;
+                    double amount = Double.parseDouble(parts[4]);
+                    tableModel.addRow(new Object[]{date, desc, category, quantity, "৳" + parts[4], "৳" + parts[5]});
+                    total += quantity * amount;
                     totalItems += quantity;
-                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + totalCost);
+                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + quantity * amount);
                 }
             }
             updateStats();
@@ -472,11 +383,11 @@ public class BudgetBee extends JFrame {
 
     private JButton createButton(String text, Color bgColor) {
         JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        button.setFont(new Font("Segoe UI", Font.BOLD, 12)); // Slightly smaller font to fit
         button.setBackground(bgColor);
         button.setForeground(Color.BLACK);
         button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Smaller padding
         return button;
     }
 
@@ -502,12 +413,5 @@ public class BudgetBee extends JFrame {
         for (int i = 0; i < table.getColumnCount(); i++) {
             table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
         }
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            BudgetBee app = BudgetBee.getInstance();
-            app.setVisible(true);
-        });
     }
 }
