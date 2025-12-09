@@ -1,7 +1,7 @@
 package org.example;
 
 import org.example.model.Expense;
-import org.example.tools.*; // Imports all your new strategies and iterators
+import org.example.tools.*; // Imports Command, CommandInvoker, AddExpenseCommand, DeleteExpenseCommand, etc.
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -30,6 +30,12 @@ public class BudgetBee extends JFrame {
     private int totalItems = 0;
     private Map<String, Double> categoryTotals = new HashMap<>();
 
+    // ===== NEW: Command Invoker Instance =====
+    private CommandInvoker commandInvoker = new CommandInvoker();
+
+    // ===== Flag to prevent infinite loops during recalculation =====
+    private boolean isRecalculating = false;
+
     private final Color[] categoryColors = {
             new Color(255, 99, 132), new Color(54, 162, 235),
             new Color(255, 206, 86), new Color(75, 192, 192),
@@ -41,7 +47,7 @@ public class BudgetBee extends JFrame {
 
     private BudgetBee() {
         setTitle("💰 BudgetBee");
-        setSize(1100, 700); // Widened slightly to fit buttons
+        setSize(1100, 700);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
@@ -69,8 +75,8 @@ public class BudgetBee extends JFrame {
         JPanel inputPanel = new JPanel(new GridLayout(2, 1, 10, 10));
         inputPanel.setBackground(new Color(240, 245, 255));
 
-        // Increased GridLayout columns to 8 to fit the new Switch button
-        JPanel fieldsPanel = new JPanel(new GridLayout(1, 8, 10, 10));
+        // Increased GridLayout columns to 9 to fit the Undo button
+        JPanel fieldsPanel = new JPanel(new GridLayout(1, 9, 10, 10));
         descriptionField = createTextFieldWithPlaceholder("Description");
         categoryCombo = createCategoryCombo(categories);
         quantityField = createTextFieldWithPlaceholder("Quantity");
@@ -80,8 +86,11 @@ public class BudgetBee extends JFrame {
         JButton saveButton = createButton("Save", new Color(33, 150, 243));
         JButton deleteButton = createButton("Delete", new Color(244, 67, 54));
 
-        // NEW: Toggle Strategy Button
+        // Toggle Strategy Button
         JButton switchChartBtn = createButton("View Bars", new Color(156, 39, 176));
+
+        // ===== NEW: Undo Button =====
+        JButton undoButton = createButton("Undo", new Color(255, 193, 7)); // Yellow/Orange
 
         fieldsPanel.add(descriptionField);
         fieldsPanel.add(categoryCombo);
@@ -90,7 +99,8 @@ public class BudgetBee extends JFrame {
         fieldsPanel.add(addButton);
         fieldsPanel.add(saveButton);
         fieldsPanel.add(deleteButton);
-        fieldsPanel.add(switchChartBtn); // Add the switch button
+        fieldsPanel.add(switchChartBtn);
+        fieldsPanel.add(undoButton); // Add Undo button to panel
 
         JPanel statsPanel = new JPanel(new GridLayout(1, 3, 10, 10));
         totalLabel = createStatLabel("Total: $0.00", new Color(192, 57, 43));
@@ -111,7 +121,6 @@ public class BudgetBee extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                // Delegate drawing to the current strategy
                 chartStrategy.drawChart(g, this, total, categoryTotals, categoryColors);
             }
         };
@@ -122,31 +131,26 @@ public class BudgetBee extends JFrame {
         // ===== Action Listeners =====
 
         switchChartBtn.addActionListener(e -> {
-            // Check if we are currently looking at a Pie Chart
             boolean wantBarChart = (chartStrategy instanceof PieChartStrategy);
-
-            // One line to swap them!
             setChartStrategy(ChartFactory.create(wantBarChart));
-
-            // Update button text
             switchChartBtn.setText(wantBarChart ? "View Pie" : "View Bars");
         });
 
-        addButton.addActionListener(e -> {
-            addExpense();
-            chartPanel.repaint();
-        });
-        amountField.addActionListener(e -> {
-            addExpense();
-            chartPanel.repaint();
-        });
-        quantityField.addActionListener(e -> {
-            addExpense();
-            chartPanel.repaint();
-        });
+        // Updated: Use Command logic
+        addButton.addActionListener(e -> addExpenseCommand());
+        amountField.addActionListener(e -> addExpenseCommand());
+        quantityField.addActionListener(e -> addExpenseCommand());
 
         saveButton.addActionListener(e -> saveData());
-        deleteButton.addActionListener(e -> deleteSelectedExpense());
+
+        // Updated: Use Command logic
+        deleteButton.addActionListener(e -> deleteSelectedExpenseCommand());
+
+        // NEW: Undo Listener
+        undoButton.addActionListener(e -> {
+            commandInvoker.undo();
+            // TableModelListener will handle the UI updates automatically
+        });
 
         table.addMouseListener(new MouseAdapter() {
             @Override
@@ -157,102 +161,36 @@ public class BudgetBee extends JFrame {
             }
         });
 
+        // IMPORTANT: Safe Listener to prevent StackOverflowError
         tableModel.addTableModelListener(e -> {
-            if (e.getType() == TableModelEvent.UPDATE) {
-                int row = e.getFirstRow();
-                int column = e.getColumn();
-                if (column == 3 || column == 4) {
-                    recalculateRowTotal(row);
-                }
-                if (column == 2) {
-                    updateCategoryTotals();
-                }
-                updateStats();
-                chartPanel.repaint();
-                saveData();
+            // Ignore updates to the Total column (index 5) to prevent loops
+            if (e.getType() == TableModelEvent.UPDATE && e.getColumn() == 5) {
+                return;
             }
+
+            recalculateAllTotals();
+            updateStats();
+            chartPanel.repaint();
+            saveData();
+            updateCategoryTotals();
         });
 
         loadData();
         chartPanel.repaint();
     }
 
-    // ===== Singleton =====
     public static synchronized BudgetBee getInstance() {
-        if (instance == null) {
-            instance = new BudgetBee();
-        }
+        if (instance == null) instance = new BudgetBee();
         return instance;
     }
 
-    // ===== Strategy Setter =====
     public void setChartStrategy(ChartStrategy strategy) {
         this.chartStrategy = strategy;
-        chartPanel.repaint(); // Force redraw immediately upon switching
-    }
-
-    private void recalculateRowTotal(int row) {
-        try {
-            int quantity = Integer.parseInt(table.getValueAt(row, 3).toString());
-            double amount = Double.parseDouble(table.getValueAt(row, 4).toString().replace("৳", "").trim());
-            double newTotal = quantity * amount;
-            table.setValueAt("৳" + String.format("%.2f", newTotal), row, 5);
-            recalculateAllTotals();
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Invalid input.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void recalculateAllTotals() {
-        total = 0;
-        totalItems = 0;
-        categoryTotals.replaceAll((k, v) -> 0.0);
-
-        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
-        int rowIndex = 0;
-        while (it.hasNext()) {
-            Expense e = it.next();
-            total += e.getTotal();
-            totalItems += e.quantity;
-            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
-
-            // Update the total column text in case it drifted
-            tableModel.setValueAt("৳" + String.format("%.2f", e.getTotal()), rowIndex++, 5);
-        }
-    }
-
-    private void updateCategoryTotals() {
-        categoryTotals.replaceAll((k, v) -> 0.0);
-        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
-        while (it.hasNext()) {
-            Expense e = it.next();
-            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
-        }
-    }
-
-    private void editSelectedCell() {
-        int row = table.getSelectedRow();
-        int col = table.getSelectedColumn();
-        if (row == -1 || col == -1) return;
-        if (col == 0 || col == 5) return; // Date and Total are read-only
-        table.editCellAt(row, col);
-        table.getEditorComponent().requestFocus();
-    }
-
-    private void deleteSelectedExpense() {
-        int selectedRow = table.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a row to delete", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        tableModel.removeRow(selectedRow);
-        recalculateAllTotals();
-        updateStats();
         chartPanel.repaint();
-        saveData();
     }
 
-    private void addExpense() {
+    // ===== NEW: Add Expense using Command Pattern =====
+    private void addExpenseCommand() {
         try {
             String desc = descriptionField.getText().trim();
             if (desc.equals("Description") || desc.isEmpty()) throw new IllegalArgumentException("Please enter a description");
@@ -268,17 +206,90 @@ public class BudgetBee extends JFrame {
             String category = (String) categoryCombo.getSelectedItem();
             String date = new SimpleDateFormat("MMM dd").format(new Date());
 
-            tableModel.addRow(new Object[]{
+            // Create data array
+            Object[] rowData = {
                     date, desc, category, quantity, "৳" + String.format("%.2f", amount), "৳" + String.format("%.2f", quantity * amount)
-            });
+            };
 
-            recalculateAllTotals();
-            updateStats();
+            // Create and Execute Command
+            Command cmd = new AddExpenseCommand(tableModel, rowData);
+            commandInvoker.execute(cmd);
+
             resetInputFields();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Please enter valid numbers", "Input Error", JOptionPane.ERROR_MESSAGE);
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Input Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // ===== NEW: Delete Expense using Command Pattern =====
+    private void deleteSelectedExpenseCommand() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a row to delete", "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Create and Execute Command
+        Command cmd = new DeleteExpenseCommand(tableModel, selectedRow);
+        commandInvoker.execute(cmd);
+    }
+
+    private void recalculateRowTotal(int row) {
+        try {
+            int quantity = Integer.parseInt(table.getValueAt(row, 3).toString());
+            double amount = Double.parseDouble(table.getValueAt(row, 4).toString().replace("৳", "").trim());
+            double newTotal = quantity * amount;
+            table.setValueAt("৳" + String.format("%.2f", newTotal), row, 5);
+            recalculateAllTotals();
+        } catch (Exception ex) {
+            // Ignore parse errors during typing
+        }
+    }
+
+    // ===== Updated: Safe Recalculation with Flag =====
+    private void recalculateAllTotals() {
+        if (isRecalculating) return; // Guard clause
+        isRecalculating = true; // Lock
+
+        try {
+            total = 0;
+            totalItems = 0;
+            categoryTotals.replaceAll((k, v) -> 0.0);
+
+            ExpenseIterator it = new TableModelExpenseIterator(tableModel);
+            int rowIndex = 0;
+            while (it.hasNext()) {
+                Expense e = it.next();
+                total += e.getTotal();
+                totalItems += e.quantity;
+                categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
+
+                if (rowIndex < tableModel.getRowCount()) {
+                    tableModel.setValueAt("৳" + String.format("%.2f", e.getTotal()), rowIndex++, 5);
+                }
+            }
+        } finally {
+            isRecalculating = false; // Unlock
+        }
+    }
+
+    private void updateCategoryTotals() {
+        categoryTotals.replaceAll((k, v) -> 0.0);
+        ExpenseIterator it = new TableModelExpenseIterator(tableModel);
+        while (it.hasNext()) {
+            Expense e = it.next();
+            categoryTotals.put(e.category, categoryTotals.get(e.category) + e.getTotal());
+        }
+    }
+
+    private void editSelectedCell() {
+        int row = table.getSelectedRow();
+        int col = table.getSelectedColumn();
+        if (row != -1 && col != -1 && col != 0 && col != 5) {
+            table.editCellAt(row, col);
+            table.getEditorComponent().requestFocus();
         }
     }
 
@@ -306,24 +317,27 @@ public class BudgetBee extends JFrame {
     private void loadData() {
         File file = new File("expenses.csv");
         if (!file.exists()) return;
+
+        // Guard against listener loops during loading
+        if (isRecalculating) return;
+        isRecalculating = true;
+
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             reader.readLine(); // skip header
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
                 if (parts.length == 6) {
-                    String date = parts[0], desc = parts[1], category = parts[2];
-                    int quantity = Integer.parseInt(parts[3]);
-                    double amount = Double.parseDouble(parts[4]);
-                    tableModel.addRow(new Object[]{date, desc, category, quantity, "৳" + parts[4], "৳" + parts[5]});
-                    total += quantity * amount;
-                    totalItems += quantity;
-                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + quantity * amount);
+                    tableModel.addRow(new Object[]{parts[0], parts[1], parts[2], parts[3], "৳" + parts[4], "৳" + parts[5]});
                 }
             }
-            updateStats();
         } catch (IOException | NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Error loading data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            // Ignore errors
+        } finally {
+            isRecalculating = false;
+            // Recalculate once after loading is finished
+            recalculateAllTotals();
+            updateStats();
         }
     }
 
@@ -383,11 +397,11 @@ public class BudgetBee extends JFrame {
 
     private JButton createButton(String text, Color bgColor) {
         JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 12)); // Slightly smaller font to fit
+        button.setFont(new Font("Segoe UI", Font.BOLD, 12));
         button.setBackground(bgColor);
         button.setForeground(Color.BLACK);
         button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Smaller padding
+        button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         return button;
     }
 
