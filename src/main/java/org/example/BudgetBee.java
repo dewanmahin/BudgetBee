@@ -118,7 +118,12 @@ public class BudgetBee extends JFrame {
         // 1. Factory Pattern (Switch View)
         btnView.addActionListener(e -> {
             boolean isPie = (chartStrategy instanceof PieChartStrategy);
-            setChartStrategy(ChartFactory.create(!isPie));
+
+            // FIX: Remove the '!' so if isPie is true, we ask for a Bar Chart (true)
+            setChartStrategy(ChartFactory.create(isPie));
+
+            // Button Text Logic:
+            // If we were on Pie (isPie=true), we just switched to Bar, so button should say "View Pie"
             btnView.setText(isPie ? "View Pie" : "View Bars");
         });
 
