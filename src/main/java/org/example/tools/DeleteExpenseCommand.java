@@ -4,29 +4,31 @@ import javax.swing.table.DefaultTableModel;
 
 public class DeleteExpenseCommand implements Command {
     private DefaultTableModel model;
-    private int rowIndex;
-    private Object[] deletedData;
+    private TableMemento memento; // <--- The Saved State Object
 
     public DeleteExpenseCommand(DefaultTableModel model, int rowIndex) {
         this.model = model;
-        this.rowIndex = rowIndex;
 
-        // Save the data before deleting so we can restore it later
+        // 1. CREATE MEMENTO (Capture state before deleting)
         int colCount = model.getColumnCount();
-        this.deletedData = new Object[colCount];
+        Object[] data = new Object[colCount];
         for (int i = 0; i < colCount; i++) {
-            deletedData[i] = model.getValueAt(rowIndex, i);
+            data[i] = model.getValueAt(rowIndex, i);
         }
+
+        // Save the snapshot
+        this.memento = new TableMemento(rowIndex, data);
     }
 
     @Override
     public void execute() {
-        model.removeRow(rowIndex);
+        // Use the saved index from the memento to remove
+        model.removeRow(memento.getRowIndex());
     }
 
     @Override
     public void undo() {
-        // Restore the row at the specific index
-        model.insertRow(rowIndex, deletedData);
+        // 2. RESTORE MEMENTO (Put the data back exactly where it was)
+        model.insertRow(memento.getRowIndex(), memento.getRowData());
     }
 }
